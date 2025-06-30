@@ -4,8 +4,9 @@ use std::fs;
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::PathBuf;
-use invoice_generator::renderer::render;
-use invoice_generator::invoice::Invoice;
+use invoicely::renderer::render;
+use invoicely::invoice::Invoice;
+use printpdf::PdfSaveOptions;
 
 #[derive(Parser)]
 #[command(name = "invoice-generator")]
@@ -18,6 +19,10 @@ struct Args {
     /// Output PDF file path
     #[arg(short, long)]
     output: PathBuf,
+    
+    /// Logo image file path (optional)
+    #[arg(short, long)]
+    logo: Option<PathBuf>,
 }
 
 fn main() -> Result<(), Error> {
@@ -29,15 +34,18 @@ fn main() -> Result<(), Error> {
     let invoice: Invoice = serde_json::from_str(&raw_invoice)
         .context("Could not parse invoice JSON data")?;
     
-    let doc = render(&invoice)?;
+    let doc = render(&invoice, args.logo.as_ref())?;
     
     let output_file = File::create(&args.output)
         .with_context(|| format!("Could not create output file: {}", args.output.display()))?;
     let mut writer = BufWriter::new(output_file);
     
-    doc.save(&mut writer)
-        .with_context(|| format!("Could not save PDF to: {}", args.output.display()))?;
-    
+    let mut save_warnings = &mut Vec::new();
+    doc.save_writer(&mut writer, &PdfSaveOptions::default(), &mut save_warnings);
+    if save_warnings.len() > 0 {
+        //println!("Warnings: {:?}", save_warnings);
+        //println!("There might had been problems saving PDF to: {}", args.output.display());
+    }
     println!("Invoice PDF generated successfully: {}", args.output.display());
     Ok(())
 }

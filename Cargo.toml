@@ -1,5 +1,5 @@
 [package]
-name = "invoice-generator"
+name = "invoicly"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,6 +8,7 @@ anyhow = "1.0.95"
 bigdecimal = { version = "0.4.7", features = ["serde"] }
 clap = { version = "4.0", features = ["derive"] }
 font-kit = "0.14.2"
-printpdf = "0.7.0"
+printpdf = "0.8.2"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
+image = "0.25.0"

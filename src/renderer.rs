@@ -7,31 +7,29 @@ use crate::format::{format_price, format_vat};
 use crate::components::table::Table;
 use crate::components::label::Label;
 use crate::locale::get_translations;
+use crate::fonts::FontManager;
+use std::path::PathBuf;
 
-pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
+pub fn render(invoice: &Invoice, _logo_path: Option<&PathBuf>) -> Result<PdfDocument, Error> {
     let translations = get_translations(&invoice.locale)?;
-    let (doc, page1, layer1) = PdfDocument::new(format!("{} {}", translations.invoice.invoice, invoice.invoice_number), Mm(210.0), Mm(297.0), "Layer 1");
+    let mut doc = PdfDocument::new(&format!("{} {}", translations.invoice.invoice, invoice.invoice_number));
 
     let currency = if &invoice.currency == "EUR" {
         "€"
     } else {
         &invoice.currency
     };
-    let regular_font = BuiltinFont::Helvetica;
-    let regular_font_ref = doc.add_builtin_font(regular_font).unwrap();
-    let bold_font = BuiltinFont::HelveticaBold;
-    let bold_font_ref = doc.add_builtin_font(bold_font).unwrap();
 
-    let current_layer = doc.get_page(page1).get_layer(layer1);
+    let font_manager = FontManager::initialize(&mut doc)?;
+    let regular_font_id = font_manager.regular_font();
+    let bold_font_id = font_manager.bold_font();
 
-    current_layer.use_text(
-        translations.invoice.invoice,
-        24.0,
-        Mm(110.0),
-        Mm(270.0),
-        &regular_font_ref,
-    );
+    let mut page_contents = vec![];
 
+    // Title
+    page_contents.extend(Label::new(translations.invoice.invoice, 22.0, &bold_font_id).render_at(110.0, 270.0));
+
+    // Invoice info table
     let invoice_info = Table {
         column_widths: vec![40.0, 30.0],
         row_height: 5.0,
@@ -46,11 +44,12 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
                 vec![&format!("{}:", translations.account.bic), invoice.bank_details.bic_code.as_str()]
             ],
             11.0,
-            &regular_font_ref
+            &regular_font_id
         )
     };
-    invoice_info.render_at(110.0, 260.0, &current_layer);
+    page_contents.extend(invoice_info.render_at(110.0, 260.0));
 
+    // Create billed to section
     let mut billed_to_lines = vec![
         vec![invoice.billed_to.name.as_str()],
         vec![invoice.billed_to.address_line_1.as_str()]
@@ -81,13 +80,11 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         column_widths: vec![30.0],
         row_height: 5.0,
         header: None,
-        rows: Label::new_rows(billed_to_lines,
-            11.0,
-            &regular_font_ref
-        )
+        rows: Label::new_rows(billed_to_lines, 11.0, &regular_font_id)
     };
-    billed_to.render_at(15.0, 260.0, &current_layer);
+    page_contents.extend(billed_to.render_at(15.0, 260.0));
 
+    // Create invoice lines
     let mut invoice_lines: Vec<Vec<String>> = Vec::new();
     for invoice_line in invoice.invoice_lines.iter() {
         let price_without_vat = &invoice_line.price / BigDecimal::from_f32(1.0 + invoice.vat_percent / 100.0).unwrap();
@@ -105,15 +102,16 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         header: Some(Label::new_row(vec![
             translations.invoice.line.item, translations.invoice.line.quantity, translations.invoice.line.price,
             translations.invoice.line.price_without_tax, &format!("{} %", translations.invoice.line.vat)
-        ], 10.0, &bold_font_ref)),
+        ], 10.0, &bold_font_id)),
         rows: Label::new_rows(
             invoice_lines.iter().map(|x| x.iter().map(|s| s.as_str()).collect()).collect(),
             10.0,
-            &regular_font_ref
+            &regular_font_id
         )
     };
-    invoice_info.render_at(15.0, 200.0, &current_layer);
+    page_contents.extend(invoice_info.render_at(15.0, 200.0));
 
+    // Add summary section
     let mut current_y = 185.0;
     let total_price: BigDecimal = invoice.invoice_lines.iter().map(|line| &line.price).sum();
     let total_vat: BigDecimal = BigDecimal::from_f32(invoice.vat_percent / 100.0).unwrap() * &total_price;
@@ -121,55 +119,50 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
     current_y = current_y - 21.0;
 
     let summary = Table {
-        column_widths: vec![40.0, 30.0],
+        column_widths: vec![45.0, 30.0],
         row_height: 5.0,
         header: None,
         rows: vec![
             Label::new_row(
                 vec![&format!("{}:", translations.invoice.total_price_without_tax), &format_price(&total_price_without_vat, currency)],
                 10.0,
-                &regular_font_ref
+                &regular_font_id
             ),
             Label::new_row(
                 vec![&format!("{} {} %:", translations.invoice.vat, &format_vat(&invoice.vat_percent)), &format_price(&total_vat, currency)],
                 10.0,
-                &regular_font_ref
+                &regular_font_id
             ),
             Label::new_row(
                 vec![&format!("{}:", translations.invoice.total_price), &format_price(&total_price, currency)],
                 10.0,
-                &bold_font_ref
+                &bold_font_id
             )
         ]
     };
-    summary.render_at(125.0, current_y, &current_layer);
+    page_contents.extend(summary.render_at(125.0, current_y));
 
-    current_layer.use_text(
-        invoice.note.as_ref().unwrap_or(&"".to_owned()),
-        10.0,
-        Mm(15.0),
-        Mm(140.0),
-        &regular_font_ref,
-    );
-    current_layer.use_text(
-        invoice.invoice_description.as_ref().unwrap_or(&"".to_owned()),
-        10.0,
-        Mm(15.0),
-        Mm(130.0),
-        &regular_font_ref,
-    );
+    // Add notes
+    if let Some(note) = invoice.note.as_ref() {
+        page_contents.extend(Label::new(note, 10.0, &regular_font_id).render_at(15.0, 140.0));
+    }
+
+    if let Some(description) = invoice.invoice_description.as_ref() {
+        page_contents.extend(Label::new(description, 10.0, &regular_font_id).render_at(15.0, 130.0));
+    }
 
     // Footer upper border
-    current_layer.set_outline_thickness(0.8);
-    current_layer.add_line(
-        Line {
+    page_contents.push(Op::SetOutlineThickness { pt: Pt(0.8) });
+    page_contents.push(Op::DrawLine { 
+        line: Line {
             points: vec![
-                (Point::new(Mm(15.0), Mm(25.0)), false),
-                (Point::new(Mm(200.0), Mm(25.0)), false),
+                LinePoint { p: Point::new(Mm(15.0), Mm(25.0)), bezier: false },
+                LinePoint { p: Point::new(Mm(200.0), Mm(25.0)), bezier: false },
             ],
             is_closed: false
         }
-    );
+    });
+
     let billed_by = Table {
         column_widths: vec![60.0, 60.0, 65.0],
         row_height: 3.0,
@@ -183,9 +176,12 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
                 vec![invoice.billed_by.detail.as_ref().map(|s| s.as_str()).unwrap_or(""), "", ""]
             ],
             7.0,
-            &regular_font_ref
+            &regular_font_id
         )
     };
-    billed_by.render_at(25.0, 20.0, &current_layer);
+    page_contents.extend(billed_by.render_at(25.0, 20.0));
+
+    let page = PdfPage::new(Mm(210.0), Mm(297.0), page_contents);
+    doc.with_pages(vec![page]);
     Ok(doc)
 }
