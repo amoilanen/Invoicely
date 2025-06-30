@@ -1,0 +1,40 @@
+{
+    "billed_by": {
+        "name": "Example Company Ltd",
+        "address_line_1": "123 Business Street",
+        "address_line_2": "Helsinki, 00100",
+        "address_line_3": "Finland",
+        "phone_number": "+358401234567",
+        "email": "contact@examplecompany.fi",
+        "company_id": "1234567-8",
+        "vat_id": "FI12345678"
+    },
+    "billed_to": {
+        "name": "Client Corporation",
+        "address_line_1": "456 Corporate Avenue",
+        "address_line_2": "Paris, 75001",
+        "address_line_3": "France",
+        "company_id": "987654321",
+        "vat_id": "FR29987654321"
+    },
+    "bank_details": {
+        "account_number": "FI12 3456 7890 1234 56",
+        "bic_code": "EXAMPLE1"
+    },
+    "currency": "EUR",
+    "vat_percent": 0,
+    "billed_at": "04.02.2025",
+    "due_date": "31.02.2025",
+    "invoice_description": "Invoice for work between February 3, 2025 to February 28, 2025 by John Doe, Example Company Ltd",
+    "invoice_number": "2025-0001",
+    "reference_id": "20250001",
+    "note": "Reverse charge - VAT to be accounted for by the recipient",
+    "invoice_lines": [
+        {
+        "name": "Work 03.02.2025 - 28.02.2025 (20 working days pay)",
+        "count": 1,
+        "price": 7500
+        }
+    ],
+    "locale": "en-GB"
+}
