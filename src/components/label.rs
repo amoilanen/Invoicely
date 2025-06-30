@@ -44,3 +44,50 @@ impl Component for Label {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_label_new() {
+        let (doc, page, layer) = PdfDocument::new("test", Mm(210.0), Mm(297.0), "test");
+        let current_layer = doc.get_page(page).get_layer(layer);
+        let font = doc.add_builtin_font(BuiltinFont::Helvetica).unwrap();
+        
+        let label = Label::new("Test Label", 12.0, font.clone());
+        
+        assert_eq!(label.value, "Test Label");
+        assert_eq!(label.font_size, 12.0);
+        label.render_at(10.0, 100.0, &current_layer);
+    }
+
+    #[test]
+    fn test_label_new_row() {
+        let (doc, _, _) = PdfDocument::new("test", Mm(210.0), Mm(297.0), "test");
+        let font = doc.add_builtin_font(BuiltinFont::Helvetica).unwrap();
+        
+        let row_data = vec!["Header1", "Header2", "Header3"];
+        let labels = Label::new_row(row_data, 12.0, &font);
+        
+        assert_eq!(labels.len(), 3);
+    }
+
+    #[test]
+    fn test_label_new_rows() {
+        let (doc, _, _) = PdfDocument::new("test", Mm(210.0), Mm(297.0), "test");
+        let font = doc.add_builtin_font(BuiltinFont::Helvetica).unwrap();
+        
+        let rows_data = vec![
+            vec!["Row1Col1", "Row1Col2"],
+            vec!["Row2Col1", "Row2Col2"],
+            vec!["Row3Col1", "Row3Col2"]
+        ];
+        let labels = Label::new_rows(rows_data, 12.0, &font);
+        
+        assert_eq!(labels.len(), 3);
+        assert_eq!(labels[0].len(), 2);
+        assert_eq!(labels[1].len(), 2);
+        assert_eq!(labels[2].len(), 2);
+    }
+}
