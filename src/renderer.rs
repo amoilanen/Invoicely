@@ -6,10 +6,10 @@ use bigdecimal::{BigDecimal, FromPrimitive};
 use crate::format::{format_price, format_vat};
 use crate::components::table::Table;
 use crate::components::label::Label;
-use crate::locale::load_translations;
+use crate::locale::get_translations;
 
 pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
-    let translations = load_translations(&invoice.locale)?;
+    let translations = get_translations(&invoice.locale)?;
     let (doc, page1, layer1) = PdfDocument::new(format!("{} {}", translations.invoice.invoice, invoice.invoice_number), Mm(210.0), Mm(297.0), "Layer 1");
 
     let currency = if &invoice.currency == "EUR" {
@@ -25,7 +25,7 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
     let current_layer = doc.get_page(page1).get_layer(layer1);
 
     current_layer.use_text(
-        &translations.invoice.invoice,
+        translations.invoice.invoice,
         24.0,
         Mm(110.0),
         Mm(270.0),
@@ -38,12 +38,12 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         header: None,
         rows: Label::new_rows(
             vec![
-                vec![&format!("{}:", &translations.invoice.number), &invoice.invoice_number],
-                vec![&format!("{}:", &translations.invoice.date), &invoice.billed_at],
-                vec![&format!("{}:", &translations.invoice.due_date), &invoice.due_date],
-                vec![&format!("{}:", &translations.invoice.reference_number), &invoice.reference_id.as_ref().unwrap_or(&"".to_owned())],
-                vec![&format!("{}:", &translations.account.number), &invoice.bank_details.account_number],
-                vec![&format!("{}:", &translations.account.bic), &invoice.bank_details.bic_code]
+                vec![&format!("{}:", translations.invoice.number), invoice.invoice_number.as_str()],
+                vec![&format!("{}:", translations.invoice.date), invoice.billed_at.as_str()],
+                vec![&format!("{}:", translations.invoice.due_date), invoice.due_date.as_str()],
+                vec![&format!("{}:", translations.invoice.reference_number), invoice.reference_id.as_ref().map(|s| s.as_str()).unwrap_or("")],
+                vec![&format!("{}:", translations.account.number), invoice.bank_details.account_number.as_str()],
+                vec![&format!("{}:", translations.account.bic), invoice.bank_details.bic_code.as_str()]
             ],
             11.0,
             &regular_font_ref
@@ -62,20 +62,20 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         billed_to_lines.push(vec![address_line_3.as_str()]);
     }
     let company_id_line = if let Some(company_id) = invoice.billed_to.company_id.as_ref() {
-        format!("{}: {}", &translations.company_id, company_id)
+        format!("{}: {}", translations.company_id, company_id)
     } else {
         "".to_owned()
     };
-    if company_id_line.len() > 0 {
-        billed_to_lines.push(vec![&company_id_line]);
+    if !company_id_line.is_empty() {
+        billed_to_lines.push(vec![company_id_line.as_str()]);
     }
     let vat_id_line = if let Some(vat_id) = invoice.billed_to.vat_id.as_ref() {
-        format!("{}: {}", &translations.vat_id, vat_id)
+        format!("{}: {}", translations.vat_id, vat_id)
     } else {
         "".to_owned()
     };
-    if vat_id_line.len() > 0 {
-        billed_to_lines.push(vec![&vat_id_line]);
+    if !vat_id_line.is_empty() {
+        billed_to_lines.push(vec![vat_id_line.as_str()]);
     }
     let billed_to = Table {
         column_widths: vec![30.0],
@@ -103,8 +103,8 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         column_widths: vec![90.0, 20.0, 30.0, 30.0, 15.0],
         row_height: 5.0,
         header: Some(Label::new_row(vec![
-            &translations.invoice.line.item, &translations.invoice.line.quantity, &translations.invoice.line.price,
-            &translations.invoice.line.price_without_tax, &format!("{} %", &translations.invoice.line.vat)
+            translations.invoice.line.item, translations.invoice.line.quantity, translations.invoice.line.price,
+            translations.invoice.line.price_without_tax, &format!("{} %", translations.invoice.line.vat)
         ], 10.0, &bold_font_ref)),
         rows: Label::new_rows(
             invoice_lines.iter().map(|x| x.iter().map(|s| s.as_str()).collect()).collect(),
@@ -126,17 +126,17 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         header: None,
         rows: vec![
             Label::new_row(
-                vec![&format!("{}:", &translations.invoice.total_price_without_tax), &format_price(&total_price_without_vat, currency)],
+                vec![&format!("{}:", translations.invoice.total_price_without_tax), &format_price(&total_price_without_vat, currency)],
                 10.0,
                 &regular_font_ref
             ),
             Label::new_row(
-                vec![&format!("{} {} %:", &translations.invoice.vat, &format_vat(&invoice.vat_percent)), &format_price(&total_vat, currency)],
+                vec![&format!("{} {} %:", translations.invoice.vat, &format_vat(&invoice.vat_percent)), &format_price(&total_vat, currency)],
                 10.0,
                 &regular_font_ref
             ),
             Label::new_row(
-                vec![&format!("{}:", &translations.invoice.total_price), &format_price(&total_price, currency)],
+                vec![&format!("{}:", translations.invoice.total_price), &format_price(&total_price, currency)],
                 10.0,
                 &bold_font_ref
             )
@@ -176,11 +176,11 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocumentReference, Error> {
         header: None,
         rows: Label::new_rows(
             vec![
-                vec![&invoice.billed_by.name, &invoice.billed_by.company_id.as_ref().map(|s| format!("{}: {}", &translations.company_id, s)).unwrap_or("".to_owned()), &invoice.billed_by.email.as_ref().unwrap_or(&"".to_owned())],
-                vec![&invoice.billed_by.address_line_1, &invoice.billed_by.vat_id.as_ref().map(|s| format!("{}: {}", &translations.vat_id, s)).unwrap_or("".to_owned()), &invoice.billed_by.phone_number.as_ref().unwrap_or(&"".to_owned())],
-                vec![&invoice.billed_by.address_line_2.as_ref().unwrap_or(&"".to_owned()), &invoice.bank_details.account_number, ""],
-                vec![&invoice.billed_by.address_line_3.as_ref().unwrap_or(&"".to_owned()), &invoice.bank_details.bic_code, ""],
-                vec![&invoice.billed_by.detail.as_ref().unwrap_or(&"".to_owned()), "", ""]
+                vec![invoice.billed_by.name.as_str(), invoice.billed_by.company_id.as_ref().map(|s| format!("{}: {}", translations.company_id, s)).unwrap_or_else(|| "".to_owned()).as_str(), invoice.billed_by.email.as_ref().map(|s| s.as_str()).unwrap_or("")],
+                vec![invoice.billed_by.address_line_1.as_str(), invoice.billed_by.vat_id.as_ref().map(|s| format!("{}: {}", translations.vat_id, s)).unwrap_or_else(|| "".to_owned()).as_str(), invoice.billed_by.phone_number.as_ref().map(|s| s.as_str()).unwrap_or("")],
+                vec![invoice.billed_by.address_line_2.as_ref().map(|s| s.as_str()).unwrap_or(""), invoice.bank_details.account_number.as_str(), ""],
+                vec![invoice.billed_by.address_line_3.as_ref().map(|s| s.as_str()).unwrap_or(""), invoice.bank_details.bic_code.as_str(), ""],
+                vec![invoice.billed_by.detail.as_ref().map(|s| s.as_str()).unwrap_or(""), "", ""]
             ],
             7.0,
             &regular_font_ref

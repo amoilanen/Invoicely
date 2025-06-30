@@ -1,60 +1,42 @@
-use anyhow::{Context, Error};
-use serde::{Deserialize, Serialize};
-use serde_json;
-use std::fs;
+use anyhow::Error;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Translations {
-    pub invoice: InvoiceTranslations,
-    pub company_id: String,
-    pub vat_id: String,
-    pub account: AccountTranslations
-}
+pub mod en_gb;
+pub mod fi_fi;
+pub mod translations;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InvoiceTranslations {
-    pub invoice: String,
-    pub number: String,
-    pub date: String,
-    pub due_date: String,
-    pub reference_number: String,
-    pub total_price_without_tax: String,
-    pub total_price: String,
-    pub vat: String,
-    pub line: LineTranslations
-}
+use en_gb::EN_GB;
+use fi_fi::FI_FI;
+use translations::Translations;
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct AccountTranslations {
-    pub number: String,
-    pub bic: String
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LineTranslations {
-    pub item: String,
-    pub quantity: String,
-    pub price: String,
-    pub price_without_tax: String,
-    pub vat: String
-}
-
-pub fn load_translations(locale: &str) -> Result<Translations, Error> {
-    let path = format!("resources/{}.json", locale);
-    let raw_translations = fs::read_to_string(path)?;
-    let translations: Translations = serde_json::from_str(&raw_translations).context("Could not load translations")?;
-    Ok(translations)
+pub fn get_translations(locale: &str) -> Result<&'static Translations, Error> {
+    match locale {
+        "en-GB" => Ok(&EN_GB),
+        "fi-FI" => Ok(&FI_FI),
+        _ => Err(Error::msg(format!("Unsupported locale: {}", locale)))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
-    fn should_load_translations() {
-        let translations = load_translations("fi-FI").unwrap();
+    fn should_get_finnish_translations() {
+        let translations = get_translations("fi-FI").unwrap();
         assert_eq!(translations.company_id, "Yritystunnus");
         assert_eq!(translations.invoice.line.price_without_tax, "Veroton hinta");
+    }
+
+    #[test]
+    fn should_get_english_translations() {
+        let translations = get_translations("en-GB").unwrap();
+        assert_eq!(translations.company_id, "Registration number");
+        assert_eq!(translations.invoice.line.price_without_tax, "Price without tax");
+    }
+
+    #[test]
+    fn should_return_error_for_unsupported_locale() {
+        let result = get_translations("fr-FR");
+        assert!(result.is_err());
     }
 }
