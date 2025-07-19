@@ -6,23 +6,16 @@ use bigdecimal::{BigDecimal, FromPrimitive};
 use crate::format::{format_price, format_vat};
 use crate::components::table::Table;
 use crate::components::label::Label;
-use crate::locale::{get_translations, translations::Translations};
-use crate::fonts::FontManager;
+use crate::locale::get_translations;
 use crate::image::load_image;
+use crate::renderer::rendering_context::{init_rendering_context, RenderingContext};
+
+mod rendering_context;
 
 pub fn render(invoice: &Invoice) -> Result<PdfDocument, Error> {
     let translations = get_translations(&invoice.locale)?;
     let mut doc = PdfDocument::new(&format!("{} {}", translations.invoice.invoice, invoice.invoice_number));
-
-    let currency = if &invoice.currency == "EUR" {
-        "€"
-    } else {
-        &invoice.currency
-    };
-
-    let font_manager = FontManager::initialize(&mut doc)?;
-    let regular_font_id = font_manager.regular_font();
-    let bold_font_id = font_manager.bold_font();
+    let rendering_context= init_rendering_context(&mut doc, invoice, translations)?;
 
     let invoice_parts = vec![
         if let Some(logo_url) = &invoice.billed_by.logo {
@@ -31,18 +24,18 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocument, Error> {
         } else {
             Vec::new()
         },
-        Label::new(translations.invoice.invoice, 22.0, &bold_font_id).render_at(110.0, 270.0),
-        invoice_info(invoice, &translations, &regular_font_id).render_at(110.0, 260.0),
-        billed_to(invoice, &translations, &regular_font_id).render_at(15.0, 260.0),
-        invoice_lines(invoice, &translations, &regular_font_id, &bold_font_id, currency).render_at(15.0, 200.0),
-        summary(invoice, translations, &regular_font_id, &bold_font_id, currency).render_at(125.0, 164.0),
+        Label::new(rendering_context.translations.invoice.invoice, 22.0, &rendering_context.bold_font_id).render_at(110.0, 270.0),
+        invoice_info(invoice, &rendering_context).render_at(110.0, 260.0),
+        billed_to(invoice, &rendering_context).render_at(15.0, 260.0),
+        invoice_lines(invoice, &rendering_context).render_at(15.0, 200.0),
+        summary(invoice, &rendering_context).render_at(125.0, 164.0),
         if let Some(note) = invoice.note.as_ref() {
-            Label::new(note, 10.0, &regular_font_id).render_at(15.0, 140.0)
+            Label::new(note, 10.0, &rendering_context.regular_font_id).render_at(15.0, 140.0)
         } else {
             Vec::new()
         },
         if let Some(description) = invoice.invoice_description.as_ref() {
-            Label::new(description, 10.0, &regular_font_id).render_at(15.0, 130.0)
+            Label::new(description, 10.0, &rendering_context.regular_font_id).render_at(15.0, 130.0)
         } else {
             Vec::new()
         },
@@ -58,7 +51,7 @@ pub fn render(invoice: &Invoice) -> Result<PdfDocument, Error> {
                 }
             }
         ],
-        billed_by(invoice, &translations, &regular_font_id).render_at(25.0, 20.0)
+        billed_by(invoice, &rendering_context).render_at(25.0, 20.0)
     ];
     let mut page_contents = Vec::new();
     for ops in invoice_parts {
@@ -87,7 +80,9 @@ fn logo(doc: &mut PdfDocument, logo_image: &RawImage) -> Result<Vec<Op>, Error> 
     }])
 }
 
-fn invoice_info(invoice: &Invoice, translations: &'static Translations, regular_font_id: &FontId) -> Table {
+fn invoice_info(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
+    let translations = rendering_context.translations;
+    let regular_font_id = &rendering_context.regular_font_id;
     Table {
         column_widths: vec![40.0, 30.0],
         row_height: 5.0,
@@ -102,12 +97,14 @@ fn invoice_info(invoice: &Invoice, translations: &'static Translations, regular_
                 vec![&format!("{}:", translations.account.bic), invoice.bank_details.bic_code.as_str()]
             ],
             11.0,
-            &regular_font_id
+            regular_font_id
         )
     }
 }
 
-fn billed_to(invoice: &Invoice, translations: &'static Translations, regular_font_id: &FontId) -> Table {
+fn billed_to(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
+    let translations = rendering_context.translations;
+    let regular_font_id = &rendering_context.regular_font_id;
     let mut billed_to_lines = vec![
         vec![invoice.billed_to.name.as_str()],
         vec![invoice.billed_to.address_line_1.as_str()]
@@ -143,7 +140,11 @@ fn billed_to(invoice: &Invoice, translations: &'static Translations, regular_fon
     billed_to
 }
 
-fn invoice_lines(invoice: &Invoice, translations: &'static Translations, regular_font_id: &FontId, bold_font_id: &FontId, currency: &str) -> Table {
+fn invoice_lines(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
+    let translations = rendering_context.translations;
+    let regular_font_id = &rendering_context.regular_font_id;
+    let bold_font_id = &rendering_context.bold_font_id;
+    let currency = &rendering_context.currency;
     let mut invoice_lines: Vec<Vec<String>> = Vec::new();
     for invoice_line in invoice.invoice_lines.iter() {
         let price_without_vat = &invoice_line.price / BigDecimal::from_f32(1.0 + invoice.vat_percent / 100.0).unwrap();
@@ -170,7 +171,12 @@ fn invoice_lines(invoice: &Invoice, translations: &'static Translations, regular
     }
 }
 
-fn summary(invoice: &Invoice, translations: &'static Translations, regular_font_id: &FontId, bold_font_id: &FontId, currency: &str) -> Table {
+fn summary(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
+    let translations = rendering_context.translations;
+    let regular_font_id = &rendering_context.regular_font_id;
+    let bold_font_id = &rendering_context.bold_font_id;
+    let currency = &rendering_context.currency;
+
     let total_price: BigDecimal = invoice.invoice_lines.iter().map(|line| &line.price).sum();
     let total_vat: BigDecimal = BigDecimal::from_f32(invoice.vat_percent / 100.0).unwrap() * &total_price;
     let total_price_without_vat = &total_price / BigDecimal::from_f32(1.0 + invoice.vat_percent / 100.0).unwrap();
@@ -199,7 +205,9 @@ fn summary(invoice: &Invoice, translations: &'static Translations, regular_font_
     }
 }
 
-fn billed_by(invoice: &Invoice, translations: &'static Translations, regular_font_id: &FontId) -> Table {
+fn billed_by(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
+    let translations = rendering_context.translations;
+    let regular_font_id = &rendering_context.regular_font_id;
     Table {
         column_widths: vec![60.0, 60.0, 65.0],
         row_height: 3.0,
