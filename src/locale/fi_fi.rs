@@ -13,7 +13,7 @@ pub const FI_FI: Translations = Translations {
         line: LineTranslations {
             item: "Tuote",
             quantity: "Määrä",
-            price: "Hinta (sis. ALV)",
+            price: "Hinta(sis. ALV)",
             price_without_tax: "Veroton hinta",
             vat: "ALV"
         }

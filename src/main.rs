@@ -20,13 +20,16 @@ struct Args {
     #[arg(short, long)]
     output: PathBuf,
     
-    /// Logo image file path (optional)
-    #[arg(short, long)]
-    logo: Option<PathBuf>,
+
 }
 
 fn main() -> Result<(), Error> {
     let args = Args::parse();
+    /*let args = Args {
+        input: PathBuf::from("examples/1.json"),
+        output: PathBuf::from("invoice.pdf"),
+    };
+    */
     
     let raw_invoice = fs::read_to_string(&args.input)
         .with_context(|| format!("Could not read input file: {}", args.input.display()))?;
@@ -34,7 +37,7 @@ fn main() -> Result<(), Error> {
     let invoice: Invoice = serde_json::from_str(&raw_invoice)
         .context("Could not parse invoice JSON data")?;
     
-    let doc = render(&invoice, args.logo.as_ref())?;
+    let doc = render(&invoice)?;
     
     let output_file = File::create(&args.output)
         .with_context(|| format!("Could not create output file: {}", args.output.display()))?;

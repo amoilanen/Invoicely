@@ -4,7 +4,7 @@ use serde_json;
 use bigdecimal::BigDecimal;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct BillingAddress {
+pub struct BillingInformation {
     pub name: String,
     pub email: Option<String>,
     pub company_id: Option<String>,
@@ -13,7 +13,8 @@ pub struct BillingAddress {
     pub address_line_1: String,
     pub address_line_2: Option<String>,
     pub address_line_3: Option<String>,
-    pub detail: Option<String>
+    pub detail: Option<String>,
+    pub logo: Option<String>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,8 +32,8 @@ pub struct BankDetails {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Invoice {
-    pub billed_to: BillingAddress,
-    pub billed_by: BillingAddress,
+    pub billed_to: BillingInformation,
+    pub billed_by: BillingInformation,
     pub invoice_description: Option<String>,
     pub currency: String,
     pub vat_percent: f32,

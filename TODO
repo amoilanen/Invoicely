@@ -3,5 +3,6 @@
   -- Add a frontend
     -- Gmail authentication 
     -- Allow to submit the data for invoices and generate them using the lambda
-    -- Allow to download the generated invoices
-- Define the template for the invoice number, created invoices can then be downloaded from the Web interface
+    -- Allow to correct the invoices
+    -- Allow to download the generated invoices and view the list of the invoices
+    -- Allow to define the template for the invoice number

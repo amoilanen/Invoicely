@@ -6,7 +6,8 @@
         "address_line_2": "00500 Helsinki",
         "phone_number": "0455555555",
         "company_id": "1234567-8",
-        "vat_id": "FI12345678"
+        "vat_id": "FI12345678",
+        "logo": "https://raw.githubusercontent.com/amoilanen/Invoicely/refs/heads/main/examples/yritys_logo_small.png"
     },
     "billed_to": {
         "name": "Matti Meikäläinen",
