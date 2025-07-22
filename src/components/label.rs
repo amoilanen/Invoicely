@@ -36,16 +36,21 @@ impl Label {
 impl Component for Label {
     fn render_at(&self, x: f32, y: f32) -> Vec<Op> {
         let mut ops: Vec<Op> = Vec::new();
-        ops.push(Op::SetFontSize { size: Pt(self.font_size), font: self.font_id.clone() });
-        ops.push(Op::StartTextSection);
-        ops.push(Op::SetTextCursor {
-            pos: Point { x: Mm(x).into(), y: Mm(y).into() }
-        });
-        ops.push(Op::WriteText {
-            items: vec![TextItem::Text(self.value.clone())],
-            font: self.font_id.clone(),
-        });
-        ops.push(Op::EndTextSection);
+        let lines: Vec<&str> = self.value.split('\n').collect();
+        let line_height = self.font_size / 2.0; // Approximate line height
+        for (index, line) in lines.iter().enumerate() {
+            let current_y = y - (index as f32 * line_height);
+            ops.push(Op::SetFontSize { size: Pt(self.font_size), font: self.font_id.clone() });
+            ops.push(Op::StartTextSection);
+            ops.push(Op::SetTextCursor {
+                pos: Point { x: Mm(x).into(), y: Mm(current_y).into() }
+            });
+            ops.push(Op::WriteText {
+                items: vec![TextItem::Text(line.to_string())],
+                font: self.font_id.clone(),
+            });
+            ops.push(Op::EndTextSection);
+        }
         ops
     }
 }
@@ -81,5 +86,17 @@ mod tests {
         assert_eq!(labels[0].len(), 2);
         assert_eq!(labels[1].len(), 2);
         assert_eq!(labels[2].len(), 2);
+    }
+
+    #[test]
+    fn test_multi_line_label() {
+        let multi_line_text = "Line 1\nLine 2\nLine 3";
+        let label = Label::new(multi_line_text, 12.0, &FontId::new());
+        assert_eq!(label.value, multi_line_text);
+        
+        let ops = label.render_at(10.0, 100.0);
+        // Should have 5 operations per line: SetFontSize, StartTextSection, SetTextCursor, WriteText, EndTextSection
+        // For 3 lines, that's 15 operations total
+        assert_eq!(ops.len(), 15);
     }
 }

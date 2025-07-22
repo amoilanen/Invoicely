@@ -14,8 +14,8 @@ mod rendering_context;
 
 pub fn render(invoice: &Invoice) -> Result<PdfDocument, Error> {
     let translations = get_translations(&invoice.locale)?;
-    let mut doc = PdfDocument::new(&format!("{} {}", translations.invoice.invoice, invoice.invoice_number));
-    let rendering_context= init_rendering_context(&mut doc, invoice, translations)?;
+    let mut doc: PdfDocument = PdfDocument::new(&format!("{} {}", translations.invoice.invoice, invoice.invoice_number));
+    let rendering_context= init_rendering_context(&mut doc, invoice, translations, &invoice.locale)?;
 
     let invoice_parts = vec![
         if let Some(logo_url) = &invoice.billed_by.logo {
@@ -151,13 +151,13 @@ fn invoice_lines(invoice: &Invoice, rendering_context: &RenderingContext) -> Tab
         invoice_lines.push(vec![
             format!("{}", invoice_line.name),
             format!("{}", invoice_line.count),
-            format_price(&invoice_line.price, currency),
-            format_price(&price_without_vat, currency),
+            format_price(&invoice_line.price, currency, &rendering_context.locale),
+            format_price(&price_without_vat, currency, &rendering_context.locale),
             format_vat(&invoice.vat_percent)
         ]);
     }
     Table {
-        column_widths: vec![90.0, 20.0, 30.0, 30.0, 15.0],
+        column_widths: vec![80.0, 20.0, 30.0, 40.0, 15.0],
         row_height: 5.0,
         header: Some(Label::new_row(vec![
             translations.invoice.line.item, translations.invoice.line.quantity, translations.invoice.line.price,
@@ -187,17 +187,17 @@ fn summary(invoice: &Invoice, rendering_context: &RenderingContext) -> Table {
         header: None,
         rows: vec![
             Label::new_row(
-                vec![&format!("{}:", translations.invoice.total_price_without_tax), &format_price(&total_price_without_vat, currency)],
+                vec![&format!("{}:", translations.invoice.total_price_without_tax), &format_price(&total_price_without_vat, currency, &rendering_context.locale)],
                 10.0,
                 &regular_font_id
             ),
             Label::new_row(
-                vec![&format!("{} {} %:", translations.invoice.vat, &format_vat(&invoice.vat_percent)), &format_price(&total_vat, currency)],
+                vec![&format!("{} {} %:", translations.invoice.vat, &format_vat(&invoice.vat_percent)), &format_price(&total_vat, currency, &rendering_context.locale)],
                 10.0,
                 &regular_font_id
             ),
             Label::new_row(
-                vec![&format!("{}:", translations.invoice.total_price), &format_price(&total_price, currency)],
+                vec![&format!("{}:", translations.invoice.total_price), &format_price(&total_price, currency, &rendering_context.locale)],
                 10.0,
                 &bold_font_id
             )

@@ -4,8 +4,13 @@ pub fn format_vat(value: &f32) -> String {
     format!("{:.1}", value).replace(".", ",")
 }
 
-pub fn format_price(value: &BigDecimal, currency: &str) -> String {
-    format!("{:.2} {}", value, currency).replace(".", ",")
+pub fn format_price(value: &BigDecimal, currency: &str, locale: &str) -> String {
+    let formatted = format!("{:.2} {}", value, currency);
+    if locale != "en-GB" {
+        formatted.replace(".", ",")
+    } else {
+        formatted
+    }
 }
 
 #[cfg(test)]
@@ -16,12 +21,13 @@ mod tests {
 
     #[test]
     fn test_format_price() {
-        assert_eq!(format_price(&BigDecimal::from_f32(1.212423).unwrap(), "EUR"), "1,21 EUR");
-        assert_eq!(format_price(&BigDecimal::from_f32(2.3450).unwrap(), "USD"), "2,35 USD");
-        assert_eq!(format_price(&BigDecimal::from_f32(2.30).unwrap(), "€"), "2,30 €");
-        assert_eq!(format_price(&BigDecimal::from_f32(2.00).unwrap(), "EUR"), "2,00 EUR");
-        assert_eq!(format_price(&BigDecimal::from_f32(100.00).unwrap(), "EUR"), "100,00 EUR");
-        assert_eq!(format_price(&BigDecimal::from_f32(5400.12).unwrap(), "EUR"), "5400,12 EUR");
+        assert_eq!(format_price(&BigDecimal::from_f32(1.212423).unwrap(), "EUR", "fi-FI"), "1,21 EUR");
+        assert_eq!(format_price(&BigDecimal::from_f32(2.3450).unwrap(), "USD", "fi-FI"), "2,35 USD");
+        assert_eq!(format_price(&BigDecimal::from_f32(2.30).unwrap(), "€", "fi-FI"), "2,30 €");
+        assert_eq!(format_price(&BigDecimal::from_f32(2.00).unwrap(), "EUR", "fi-FI"), "2,00 EUR");
+        assert_eq!(format_price(&BigDecimal::from_f32(100.00).unwrap(), "EUR", "fi-FI"), "100,00 EUR");
+        assert_eq!(format_price(&BigDecimal::from_f32(5400.12).unwrap(), "EUR", "fi-FI"), "5400,12 EUR");
+        assert_eq!(format_price(&BigDecimal::from_f32(1.212423).unwrap(), "EUR", "en-GB"), "1.21 EUR");
     }
 
     #[test]
